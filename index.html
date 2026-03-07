@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#083D5E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Monitor de Empoçamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --teal-900:#052E44;--teal-700:#083D5E;--teal-500:#0E6B9B;
+  --teal-300:#5BAED4;--teal-100:#DDF0FA;--teal-50:#F0F8FC;
+  --amber:#F4A928;--amber-bg:#FFF8EA;
+  --red:#C1342A;--red-bg:#FFF0EF;
+  --green:#217A52;--green-bg:#EAFAF2;--green-500:#22C55E;
+  --ink:#0D1F2D;--muted:#5A7080;--border:#D0DDE5;
+  --surface:#FFF;--bg:#F4F8FB;
+  --r-sm:8px;--r-md:14px;--r-lg:20px;--r-xl:28px;
+  --shadow:0 2px 16px rgba(8,61,94,.09);
+  --shadow-lg:0 8px 40px rgba(8,61,94,.18);
+  --sat:env(safe-area-inset-top,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);-webkit-user-select:none;user-select:none}
+input,textarea,select{-webkit-user-select:text;user-select:text;font-family:'DM Sans',sans-serif}
+
+.screen{
+  position:fixed;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  background:var(--bg);
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(18px);
+  transition:opacity .32s ease, transform .32s ease;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:calc(var(--sab) + 56px);
+}
+.screen.active{
+  opacity:1;
+  pointer-events:all;
+  transform:translateY(0);
+  z-index:10;
+}
+.screen.exit-up{
+  opacity:0;
+  transform:translateY(-24px);
+  pointer-events:none;
+  z-index:5;
+}
+.screen-inner{
+  width:100%;
+  max-width:500px;
+  margin:0 auto;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+.offline-banner{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:none;
+  background:var(--amber-bg);border-bottom:1px solid rgba(244,169,40,.3);
+  padding:calc(var(--sat)+7px) 16px 7px;
+  font-size:.8rem;color:#7A5E0B;text-align:center;
+  transition: transform 0.3s ease;
+}
+.offline-banner.show{display:block; animation: slideDown 0.3s ease forwards;}
+@keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+
+/* LOGIN SCREEN */
+#screenLogin{
+  background:linear-gradient(160deg, var(--teal-900) 0%, var(--teal-700) 45%, #0E6B9B 100%);
+  justify-content:center;
+  align-items:center;
+  padding:calc(var(--sat)+24px) 24px calc(var(--sab)+32px);
+}
+.login-hero{text-align:center;margin-bottom:32px;color:#fff}
+.login-logo-img{
+  width:100px; height:auto; display:block; margin:0 auto 16px;
+  animation:float 3.2s ease-in-out infinite;
+  filter:drop-shadow(0 4px 16px rgba(0,0,0,.25));
+}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.login-hero h2{
+  font-family:'DM Serif Display',serif;font-size:2rem;
+  font-weight:400;line-height:1.2;margin-bottom:8px;
+  text-shadow:0 2px 12px rgba(0,0,0,.2);
+}
+.login-hero p{font-size:.9rem;opacity:.75;line-height:1.55}
+
+.login-card{
+  width:100%;max-width:360px;
+  background:rgba(255,255,255,.96);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-radius:var(--r-xl);
+  padding:28px 24px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.5);
+}
+.login-card .field{margin-bottom:14px}
+.login-card .field label{
+  display:block;font-size:.76rem;font-weight:600;
+  color:var(--teal-700);margin-bottom:5px;
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.login-card .field input{
+  width:100%;border:1.5px solid var(--border);border-radius:var(--r-sm);
+  padding:13px 14px;font-size:16px;color:var(--ink);
+  background:#FAFCFE;transition:border-color .2s,box-shadow .2s;
+  -webkit-appearance:none;appearance:none;
+}
+.login-card .field input:focus{
+  outline:none;border-color:var(--teal-500);
+  box-shadow:0 0 0 3px rgba(14,107,155,.14);background:#fff;
+}
+.login-footer{
+  margin-top:14px;text-align:center;font-size:.8rem;
+  color:rgba(8,61,94,.55);
+}
+
+/* MAIN SCREEN */
+.app-header{
+  background:linear-gradient(135deg,var(--teal-900) 0%,var(--teal-700) 60%,var(--teal-500) 100%);
+  padding:calc(var(--sat)+12px) 16px 14px;
+  position:relative;overflow:hidden;flex-shrink:0;
+}
+.app-header::after{
+  content:'';position:absolute;right:-24px;bottom:-24px;
+  width:110px;height:110px;border-radius:50%;
+  background:rgba(255,255,255,.05);
+}
+.header-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+.header-brand{display:flex;align-items:center;gap:10px}
+.header-logo-img{width:36px;height:36px;object-fit:contain;border-radius:var(--r-sm);background:rgba(255,255,255,.15);padding:4px;}
+.header-brand h1{font-family:'DM Serif Display',serif;font-size:.95rem;color:#fff;line-height:1.2;font-weight:400}
+.header-brand p{font-size:.68rem;color:rgba(255,255,255,.6);margin-top:1px}
+.header-user{
+  display:flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+  border-radius:99px;padding:5px 11px 5px 6px;
+  cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.header-user .avatar{width:24px;height:24px;border-radius:50%;background:var(--teal-300);color:var(--teal-900);font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+.header-user span{font-size:.75rem;color:rgba(255,255,255,.9);font-weight:500}
+
+/* TABS */
+.tabs-bar{
+  display:flex;background:var(--surface);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:sticky;top:0;z-index:20;
+}
+.tab-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:10px 8px 8px;background:none;border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:.76rem;font-weight:500;color:var(--muted);
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  position:relative;transition:color .18s;
+}
+.tab-btn .tab-icon{font-size:1.15rem;line-height:1}
+.tab-btn::after{
+  content:'';position:absolute;bottom:-2px;left:12%;right:12%;
+  height:2.5px;background:var(--teal-500);border-radius:2px 2px 0 0;
+  transform:scaleX(0);transition:transform .2s;
+}
+.tab-btn.active{color:var(--teal-700);font-weight:600}
+.tab-btn.active::after{transform:scaleX(1)}
+.tab-badge{
+  position:absolute;top:7px;right:calc(50% - 20px);
+  background:var(--teal-300);color:var(--teal-900);
+  font-size:.58rem;font-weight:800;min-width:15px;height:15px;
+  border-radius:99px;display:none;align-items:center;justify-content:center;padding:0 3px;
+}
+.tab-badge.show{display:flex}
+
+.tab-panel{display:none;flex-direction:column;padding:14px}
+.tab-panel.active{display:flex;animation:fadeUp .22s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* SHARED COMPONENTS */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:15px 20px;border:none;border-radius:var(--r-md);
+  font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;
+  cursor:pointer;transition:all .14s;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.btn:active{transform:scale(.96);opacity:.88}
+.btn-primary{background:linear-gradient(135deg,var(--teal-700),var(--teal-500));color:#fff;box-shadow:0 4px 14px rgba(8,61,94,.3)}
+.btn-confirm{background:linear-gradient(135deg,var(--green),#2AA868);color:#fff;font-size:1.05rem;padding:17px 20px;box-shadow:0 4px 18px rgba(33,122,82,.38)}
+.btn-confirm:disabled{background:#B0C4CC;box-shadow:none;cursor:not-allowed;transform:none;opacity:1}
+.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);font-size:.9rem;padding:11px 16px}
+
+.card{background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;margin-bottom:12px}
+.card-header{padding:11px 13px 8px;border-bottom:1px solid var(--teal-50);display:flex;align-items:center;gap:8px}
+.card-header .icon-wrap{width:30px;height:30px;border-radius:var(--r-sm);background:var(--teal-50);display:flex;align-items:center;justify-content:center;font-size:.92rem;flex-shrink:0}
+.card-header h3{font-size:.87rem;font-weight:600;color:var(--teal-700)}
+.card-header p{font-size:.72rem;color:var(--muted);margin-top:1px}
+.card-body{padding:11px 13px}
+
+.field{margin-bottom:13px}
+.field label{display:block;font-size:.75rem;font-weight:600;color:var(--teal-700);margin-bottom:6px;letter-spacing:.03em;text-transform:uppercase}
+.field input,.field select,.field textarea{
+  width:100%;border:1.5px solid var(--border);border-radius:var(--r-sm);
+  padding:13px 14px;font-size:16px;color:var(--ink);
+  background:#FAFCFE;transition:border-color .2s,box-shadow .2s;
+  -webkit-appearance:none;appearance:none;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  outline:none;border-color:var(--teal-500);
+  box-shadow:0 0 0 3px rgba(14,107,155,.14);background:#fff;
+}
+.field textarea{resize:none;min-height:74px;line-height:1.5}
+
+/* MAP */
+.map-wrap{position:relative;border-radius:var(--r-sm);overflow:hidden;line-height:0;border:2px solid var(--teal-100);touch-action:none}
+.map-wrap img{width:100%;height:auto;display:block;pointer-events:none;-webkit-user-drag:none}
+.map-overlay{position:absolute;inset:0;touch-action:none;-webkit-tap-highlight-color:transparent}
+.map-hint{
+  position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  background:rgba(8,61,94,.82);color:#fff;
+  font-size:.7rem;font-weight:500;padding:5px 13px;
+  border-radius:99px;white-space:nowrap;pointer-events:none;
+  transition:opacity .28s;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:5;
+}
+.map-hint.hidden{opacity:0}
+
+/* ==========================================================
+   SISTEMA DE CORES DINÂMICAS PARA OS SETORES
+========================================================== */
+.sector-overlay, .sector-card {
+  /* Cor padrão de fallback (caso o nome no CSV não tenha uma cor definida) */
+  --s-main: #22C55E; --s-bg: #F0FDF4; --s-glow: rgba(34,197,94,0.4); --s-light: rgba(34,197,94,0.15);
+}
+
+/* O ID do CSV determina a cor! */
+.theme-VERMELHO { --s-main: #DC2626; --s-bg: #FEF2F2; --s-glow: rgba(220,38,38,0.4); --s-light: rgba(220,38,38,0.15); }
+.theme-LARANJA  { --s-main: #EA580C; --s-bg: #FFF7ED; --s-glow: rgba(234,88,12,0.4); --s-light: rgba(234,88,12,0.15); }
+.theme-AZUL     { --s-main: #2563EB; --s-bg: #EFF6FF; --s-glow: rgba(37,99,235,0.4); --s-light: rgba(37,99,235,0.15); }
+.theme-VERDE    { --s-main: #16A34A; --s-bg: #F0FDF4; --s-glow: rgba(22,163,74,0.4); --s-light: rgba(22,163,74,0.15); }
+
+/* Overlays no Mapa usando as Variáveis */
+.sector-overlay{position:absolute;border:2.5px solid transparent;border-radius:3px;pointer-events:none;transition:all .16s}
+.sector-overlay.selected{border-color:var(--s-main);background:var(--s-light);animation:secPulse 2.2s ease-in-out infinite}
+@keyframes secPulse{0%,100%{box-shadow:0 0 0 0 var(--s-glow)}50%{box-shadow:0 0 0 5px transparent}}
+
+/* Cartões dos Setores usando as Variáveis */
+.sector-cards{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.sector-card{background:var(--surface);border:1.5px solid var(--s-main);border-radius:var(--r-lg);overflow:hidden;animation:fadeUp .2s ease}
+.sector-card-head{display:flex;align-items:center;padding:10px 12px;background:var(--s-bg);gap:8px}
+.sector-card-head .dot{width:8px;height:8px;border-radius:50%;background:var(--s-main);flex-shrink:0;animation:dotPulse 1.6s ease-in-out infinite}
+@keyframes dotPulse{0%,100%{box-shadow:0 0 0 2px var(--s-glow)}50%{box-shadow:0 0 0 5px transparent}}
+.sector-card-head .sc-name{font-size:.86rem;font-weight:600;color:var(--s-main);flex:1}
+.sector-card-head .sc-count{font-size:.72rem;color:var(--s-main);font-weight:500;background:var(--s-light);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.sc-remove{width:26px;height:26px;border-radius:50%;background:var(--s-light);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--s-main);touch-action:manipulation;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.sector-card-body{padding:10px;border-top:1px solid var(--s-light)}
+
+/* Grid de Zoom e Chips usando as Variáveis */
+.zoom-wrap{position:relative;border-radius:6px;overflow:hidden;border:1.5px solid var(--s-light);touch-action:none}
+.zoom-bg{width:100%;position:relative;background-repeat:no-repeat}
+.quad-cell{position:absolute;border:1.5px dashed var(--s-glow);box-sizing:border-box;cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;transition:background .12s,border-color .12s}
+.quad-cell.selected{background:var(--s-light)!important;border:2.5px solid var(--s-main)!important}
+.quad-label{font-size:.68rem;font-weight:700;color:rgba(8,61,94,.8);pointer-events:none;text-align:center;text-shadow:0 1px 2px rgba(255,255,255,.9)}
+.quad-cell.selected .quad-label{color:var(--s-main)}
+.quad-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;min-height:22px}
+.quad-chip{display:inline-flex;align-items:center;gap:4px;background:var(--s-bg);border:1.5px solid var(--s-light);border-radius:99px;padding:3px 9px 3px 8px;font-size:.74rem;font-weight:600;color:var(--s-main);animation:fadeUp .16s ease}
+.quad-chip button{background:none;border:none;color:var(--s-main);cursor:pointer;padding:0;font-size:.7rem;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.quads-empty{font-size:.78rem;color:var(--muted)}
+
+.tap-ripple{position:absolute;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:rgba(91,174,212,.5);pointer-events:none;animation:ripple .44s ease-out forwards}
+@keyframes ripple{from{transform:scale(0);opacity:1}to{transform:scale(2.8);opacity:0}}
+
+/* SUMMARY */
+.summary-block{background:var(--teal-50);border:1.5px solid var(--teal-100);border-radius:var(--r-md);padding:10px 12px;margin-bottom:13px}
+.sum-row{display:flex;align-items:flex-start;gap:8px;font-size:.82rem;padding:3px 0}
+.sum-label{color:var(--muted);font-weight:500;white-space:nowrap;min-width:72px}
+.sum-val{color:var(--teal-700);font-weight:600;word-break:break-word}
+.sum-empty{color:var(--muted);font-style:italic;font-weight:400}
+
+/* RADIO GROUPS */
+.radio-group{display:flex;flex-wrap:wrap;gap:7px}
+.radio-opt{position:relative}
+.radio-opt input{position:absolute;opacity:0;width:0;height:0}
+.radio-opt label{display:inline-flex;align-items:center;gap:5px;padding:9px 13px;border-radius:99px;border:1.5px solid var(--border);background:#FAFCFE;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .13s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.radio-opt input:checked+label{border-color:var(--teal-500);background:var(--teal-100);color:var(--teal-700);font-weight:600}
+.radio-opt.int-fraca  input:checked+label{border-color:#3B82F6;background:#EFF6FF;color:#1D4ED8}
+.radio-opt.int-mod    input:checked+label{border-color:var(--amber);background:var(--amber-bg);color:#B07600}
+.radio-opt.int-forte  input:checked+label{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+.radio-opt.int-mforte input:checked+label{border-color:#7C2D12;background:#FFF7ED;color:#7C2D12}
+
+/* SEVERITY */
+.severity-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.severity-opt{position:relative}
+.severity-opt input{position:absolute;opacity:0;width:0;height:0}
+.severity-opt label{display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 5px 10px;border-radius:var(--r-sm);border:2px solid var(--border);background:#FAFCFE;cursor:pointer;transition:all .13s;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.severity-opt label .sev-icon{font-size:1.4rem}
+.severity-opt label .sev-label{font-size:.69rem;font-weight:600;color:var(--muted);line-height:1.2;text-align:center}
+.severity-opt input[value="Leve"]:checked+label{border-color:#3B82F6;background:#EFF6FF}
+.severity-opt input[value="Leve"]:checked+label .sev-label{color:#1D4ED8}
+.severity-opt input[value="Moderado"]:checked+label{border-color:var(--amber);background:var(--amber-bg)}
+.severity-opt input[value="Moderado"]:checked+label .sev-label{color:#B07600}
+.severity-opt input[value="Grave"]:checked+label{border-color:var(--red);background:var(--red-bg)}
+.severity-opt input[value="Grave"]:checked+label .sev-label{color:var(--red)}
+
+/* SUCCESS SCREEN */
+#screenSuccess{justify-content:center;align-items:center}
+.success-screen{display:flex;flex-direction:column;align-items:center;padding:32px 24px;text-align:center;width:100%;max-width:500px;margin:0 auto}
+.success-circle{width:94px;height:94px;border-radius:50%;background:var(--green-bg);border:3px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:2.8rem;margin:0 auto 20px;animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.success-screen h2{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--green);margin-bottom:7px;font-weight:400}
+.success-screen>p{color:var(--muted);line-height:1.55;max-width:290px}
+.success-detail{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 18px;margin:18px 0;width:100%;max-width:320px;text-align:left}
+.success-detail .row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bg);font-size:.83rem}
+.success-detail .row:last-child{border-bottom:none}
+.success-detail .row .key{color:var(--muted);flex-shrink:0}
+.success-detail .row .val{font-weight:600;color:var(--teal-700);text-align:right;word-break:break-word}
+
+/* TOAST (Notificação) - Modificado para descer do topo e não ficar preso */
+.toast{
+  position:fixed;
+  top:calc(var(--sat) + 20px); 
+  left:50%;
+  transform:translateX(-50%) translateY(-100px);
+  background:var(--red);
+  color:#fff;
+  padding:12px 20px;
+  border-radius:var(--r-md);
+  font-size:.88rem;
+  font-weight:500;
+  box-shadow:0 8px 24px rgba(0,0,0,.22);
+  transition:transform .3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index:9999;
+  max-width:calc(100vw - 48px);
+  text-align:center;
+  cursor:pointer; 
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green)}
+.spinner{width:17px;height:17px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="offline-banner" id="offlineBanner">⚠️ Sem conexão — verifique a rede.</div>
+
+<div class="screen active" id="screenLogin">
+  <div class="login-hero">
+    <img src="water.png" alt="Logo Monitor" class="login-logo-img">
+    <h2>Monitor de<br>Empoçamento</h2>
+    <p>Registro colaborativo de pontos<br>de empoçamento na escola</p>
+  </div>
+  <div class="login-card">
+    <div class="field">
+      <label>👤 Usuário</label>
+      <input type="text" id="loginUser" placeholder="ex: professora.ana"
+             autocapitalize="none" autocorrect="off" autocomplete="username" inputmode="text">
+    </div>
+    <div class="field" style="margin-bottom:18px">
+      <label>🔒 Senha</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" id="btnLogin" style="background:linear-gradient(135deg,#083D5E,#0a5a8a);box-shadow:0 4px 20px rgba(0,0,0,.25)">
+      Entrar →
+    </button>
+    <p class="login-footer">Problemas? Fale com a coordenação.</p>
+  </div>
+</div>
+
+<div class="screen" id="screenMain">
+  <div class="screen-inner">
+
+    <div class="app-header">
+      <div class="header-top">
+        <div class="header-brand">
+          <img src="water.png" class="header-logo-img" alt="Logo">
+          <div>
+            <h1>Monitor de Empoçamento</h1>
+            <p id="headerSchool">Escola Municipal</p>
+          </div>
+        </div>
+        <div class="header-user" id="btnLogout">
+          <div class="avatar" id="headerAvatar">?</div>
+          <span id="headerUser">Usuário</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs-bar">
+      <button class="tab-btn active" id="tabBtnLoc" onclick="switchTab('loc')">
+        <span class="tab-icon">📍</span>
+        Localização
+        <span class="tab-badge" id="badgeLoc">0</span>
+      </button>
+      <button class="tab-btn" id="tabBtnDados" onclick="switchTab('dados')">
+        <span class="tab-icon">📋</span>
+        Dados
+      </button>
+    </div>
+
+    <div class="tab-panel active" id="tabLoc">
+      <div class="card">
+        <div class="card-header">
+          <div class="icon-wrap">🗺️</div>
+          <div>
+            <h3>Selecione os setores</h3>
+            <p>Toque nas áreas verdes · múltipla seleção</p>
+          </div>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <div class="map-wrap" id="mapWrap">
+            <img id="floorImg" alt="Planta Baixa">
+            <div class="map-overlay" id="mapOverlay"></div>
+            <div id="sectorOverlays"></div>
+            <div class="map-hint" id="mapHint">👆 Toque em uma área verde</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sector-cards" id="sectorCards"></div>
+
+      <button class="btn btn-primary" id="btnGoToDados" disabled>
+        Ir para Dados →
+      </button>
+    </div>
+
+    <div class="tab-panel" id="tabDados">
+      <div class="summary-block" id="summaryBlock">
+        <div class="sum-row">
+          <span class="sum-label">Setores</span>
+          <span id="sumSectors" class="sum-empty">Nenhum selecionado</span>
+        </div>
+        <div class="sum-row">
+          <span class="sum-label">Quadrantes</span>
+          <span id="sumQuads" class="sum-empty">—</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="icon-wrap">📋</div>
+          <div><h3>Preencha os dados</h3><p>Informações sobre o evento</p></div>
+        </div>
+        <div class="card-body">
+
+          <div class="field">
+            <label>👤 Seu nome</label>
+            <input type="text" id="formUser" placeholder="Ex: Professora Ana"
+                   autocomplete="name" autocapitalize="words">
+          </div>
+
+          <div class="field">
+            <label>🗓️ Dia da chuva</label>
+            <div class="radio-group">
+              <div class="radio-opt"><input type="radio" name="rainDay" id="rdHoje" value="Hoje" checked><label for="rdHoje">Hoje</label></div>
+              <div class="radio-opt"><input type="radio" name="rainDay" id="rdOntem" value="Ontem"><label for="rdOntem">Ontem</label></div>
+              <div class="radio-opt"><input type="radio" name="rainDay" id="rdAnteOntem" value="Anteontem"><label for="rdAnteOntem">Anteontem</label></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>🌧️ Intensidade da chuva</label>
+            <div class="radio-group">
+              <div class="radio-opt int-fraca"><input type="radio" name="rainInt" id="riLeve" value="Fraca" checked><label for="riLeve">Fraca</label></div>
+              <div class="radio-opt int-mod"><input type="radio" name="rainInt" id="riMod" value="Moderada"><label for="riMod">Moderada</label></div>
+              <div class="radio-opt int-forte"><input type="radio" name="rainInt" id="riFort" value="Forte"><label for="riFort">Forte</label></div>
+              <div class="radio-opt int-mforte"><input type="radio" name="rainInt" id="riMFort" value="Muito forte"><label for="riMFort">Muito forte</label></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>💧 Nível de Empoçamento</label>
+            <div class="severity-grid">
+              <div class="severity-opt"><input type="radio" name="empocamento" id="empLeve" value="Leve" checked><label for="empLeve"><span class="sev-icon">🟦</span><span class="sev-label">Leve<br><small style="font-weight:400;font-size:.62rem">poça d&#39;água</small></span></label></div>
+              <div class="severity-opt"><input type="radio" name="empocamento" id="empMod" value="Moderado"><label for="empMod"><span class="sev-icon">🟧</span><span class="sev-label">Moderado<br><small style="font-weight:400;font-size:.62rem">dificulta circulação</small></span></label></div>
+              <div class="severity-opt"><input type="radio" name="empocamento" id="empGrave" value="Grave"><label for="empGrave"><span class="sev-icon">🟥</span><span class="sev-label">Grave<br><small style="font-weight:400;font-size:.62rem">impede passagem</small></span></label></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>📝 Observações <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <textarea id="formObs" placeholder="Ex: água vindo da calha, próximo à porta 3..."></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <button class="btn btn-confirm" id="btnConfirm">✅ &nbsp;CONFIRMAR REGISTRO</button>
+      <button class="btn btn-ghost" onclick="switchTab('loc')" style="margin-top:8px">← Voltar à localização</button>
+    </div>
+
+  </div></div>
+
+<div class="screen" id="screenSuccess">
+  <div class="success-screen">
+    <div class="success-circle">✅</div>
+    <h2>Registrado!</h2>
+    <p>Empoçamento salvo com sucesso na planilha da escola.</p>
+    <div class="success-detail">
+      <div class="row"><span class="key">Setores</span><span class="val" id="succSectors">—</span></div>
+      <div class="row"><span class="key">Quadrantes</span><span class="val" id="succQuads">—</span></div>
+      <div class="row"><span class="key">Dia da chuva</span><span class="val" id="succDay">—</span></div>
+      <div class="row"><span class="key">Intensidade</span><span class="val" id="succInt">—</span></div>
+      <div class="row"><span class="key">Empoçamento</span><span class="val" id="succEmp">—</span></div>
+      <div class="row"><span class="key">Usuário</span><span class="val" id="succUser">—</span></div>
+      <div class="row"><span class="key">Data/Hora</span><span class="val" id="succDateTime">—</span></div>
+    </div>
+    <button class="btn btn-primary" id="btnReset" style="max-width:320px">🔁 &nbsp;Novo registro</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" onclick="this.classList.remove('show')"></div>
+
+<script>
+/* ══════════════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════════════ */
+const CFG = {
+  APPS_SCRIPT_URL:"https://script.google.com/macros/s/AKfycbzxjySP_v4DXowX9IMPDWZ9UfAa-Dc0nchKgSydpwdQovqO2LtUf-EDCF4RIEoZRjm4/exec",
+  SCHOOL_NAME: "Escola Municipal · Pátios Vivos",
+  USERS: {
+    "admin":       "escola123",
+    "professor":   "abc456",
+    "coordenador": "coord789",
+  },
+  IMG_ASPECT: 0.7493245624339246,
+  IMG_SRC: "Base_Site.png",
+  SECTORS: [],
+};
+
+/* ══════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════ */
+let currentUser      = null;
+let sectorSelections = new Map();   // sectorId → Set<quadrantId>
+
+const qs  = s => document.querySelector(s);
+const qsa = s => document.querySelectorAll(s);
+
+/* ── Offline ── */
+window.addEventListener('online',  () => qs('#offlineBanner').classList.remove('show'));
+window.addEventListener('offline', () => {
+  qs('#offlineBanner').classList.add('show');
+  setTimeout(() => qs('#offlineBanner').classList.remove('show'), 4000);
+});
+if (!navigator.onLine) {
+  qs('#offlineBanner').classList.add('show');
+  setTimeout(() => qs('#offlineBanner').classList.remove('show'), 4000);
+}
+
+/* ── Init e Leitura do CSV ── */
+window.addEventListener('DOMContentLoaded', async () => {
+  qs('#floorImg').src = CFG.IMG_SRC;
+  await carregarSetoresDoCSV(); 
+  buildSectorOverlays();        
+});
+
+async function carregarSetoresDoCSV() {
+  try {
+    const response = await fetch('Localização Quadrantes código.csv'); 
+    if (!response.ok) throw new Error("Falha ao carregar o CSV");
+    
+    const csvText = await response.text();
+    CFG.SECTORS = parseCSV(csvText);
+  } catch (error) {
+    console.error("Erro ao carregar mapa de setores:", error);
+    toast("Aviso: Não foi possível carregar os setores dinâmicos.");
+  }
+}
+
+function parseCSV(csv) {
+  const lines = csv.trim().split('\n');
+  const sectorsMap = new Map();
+
+  const REF_WIDTH = 1021.56; 
+  const REF_HEIGHT = 765.48; 
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i].split(',');
+    
+    if (row.length < 7) continue; 
+
+    const tipo      = row[0].trim().toUpperCase(); 
+    const id        = row[1].trim();               
+    const parent_id = row[2] ? row[2].trim() : null;
+    
+    const label = id;
+
+    const x_ini = parseFloat(row[3]);
+    const x_fin = parseFloat(row[4]);
+    const y_ini = parseFloat(row[5]);
+    const y_fin = parseFloat(row[6]);
+
+    const x = Number(((x_ini / REF_WIDTH) * 100).toFixed(2));
+    const y = Number(((y_ini / REF_HEIGHT) * 100).toFixed(2));
+    const w = Number((((x_fin - x_ini) / REF_WIDTH) * 100).toFixed(2));
+    const h = Number((((y_fin - y_ini) / REF_HEIGHT) * 100).toFixed(2));
+
+    if (tipo === 'SETOR') {
+      sectorsMap.set(id, { id, label, x, y, w, h, quadrants: [] });
+    } else if (tipo === 'QUADRANTE' && parent_id && sectorsMap.has(parent_id)) {
+      sectorsMap.get(parent_id).quadrants.push({ id, label, x, y, w, h });
+    }
+  }
+  
+  return Array.from(sectorsMap.values());
+}
+
+/* ══════════════════════════════════════════════════
+   SCREEN TRANSITIONS
+══════════════════════════════════════════════════ */
+function showScreen(id, exitCurrent = true) {
+  const incoming = qs('#' + id);
+  if (exitCurrent) {
+    qsa('.screen.active').forEach(s => {
+      s.classList.add('exit-up');
+      s.classList.remove('active');
+      s.addEventListener('transitionend', () => s.classList.remove('exit-up'), { once: true });
+    });
+  }
+  incoming.scrollTop = 0;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => incoming.classList.add('active'));
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════════ */
+function switchTab(tab) {
+  const key = tab.charAt(0).toUpperCase() + tab.slice(1);
+  qsa('.tab-btn').forEach(b => b.classList.remove('active'));
+  qsa('.tab-panel').forEach(p => p.classList.remove('active'));
+  qs('#tabBtn' + key).classList.add('active');
+  qs('#tab' + key).classList.add('active');
+  if (tab === 'dados') updateSummary();
+}
+
+/* ══════════════════════════════════════════════════
+   LOGIN
+══════════════════════════════════════════════════ */
+qs('#loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+qs('#loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') qs('#loginPass').focus(); });
+qs('#btnLogin').addEventListener('click', doLogin);
+
+function doLogin() {
+  const u = qs('#loginUser').value.trim().toLowerCase();
+  const p = qs('#loginPass').value;
+  if (!u || !p) return toast('Preencha usuário e senha.');
+  if (CFG.USERS[u] !== p) return toast('Usuário ou senha incorretos.');
+
+  currentUser = u;
+  qs('#headerUser').textContent   = u;
+  qs('#headerAvatar').textContent = u[0].toUpperCase();
+  qs('#headerSchool').textContent = CFG.SCHOOL_NAME;
+  qs('#formUser').value           = u;
+
+  showScreen('screenMain');
+}
+
+qs('#btnLogout').addEventListener('click', () => {
+  if (!confirm('Sair do sistema?')) return;
+  currentUser = null;
+  sectorSelections.clear();
+  qs('#loginUser').value = '';
+  qs('#loginPass').value = '';
+  showScreen('screenLogin', false);
+  const login = qs('#screenLogin');
+  login.classList.remove('exit-up');
+});
+
+/* ══════════════════════════════════════════════════
+   MAP — SECTOR OVERLAYS
+══════════════════════════════════════════════════ */
+function buildSectorOverlays() {
+  const wrap = qs('#sectorOverlays');
+  wrap.innerHTML = ''; 
+  CFG.SECTORS.forEach(s => {
+    const el = document.createElement('div');
+    // ADICIONA A COR DINÂMICA AO MAPA AQUI ↓
+    el.className = 'sector-overlay theme-' + s.id.toUpperCase(); 
+    el.id = 'so-' + s.id;
+    el.style.cssText = `left:${s.x}%;top:${s.y}%;width:${s.w}%;height:${s.h}%`;
+    wrap.appendChild(el);
+  });
+}
+
+const mapOverlay = qs('#mapOverlay');
+mapOverlay.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  mapOverlay.setPointerCapture(e.pointerId);
+});
+mapOverlay.addEventListener('pointerup', e => {
+  e.preventDefault();
+  const r  = qs('#mapWrap').getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width  * 100;
+  const py = (e.clientY - r.top)  / r.height * 100;
+  addRipple(qs('#mapWrap'), e.clientX - r.left, e.clientY - r.top);
+  handleSectorTap(px, py);
+});
+
+function handleSectorTap(px, py) {
+  const sector = CFG.SECTORS.find(s =>
+    px >= s.x && px < s.x + s.w && py >= s.y && py < s.y + s.h
+  );
+  if (!sector) { toast('Toque em uma das áreas verdes.'); return; }
+
+  if (sectorSelections.has(sector.id)) {
+    removeSector(sector.id);
+  } else {
+    sectorSelections.set(sector.id, new Set());
+    qs('#so-' + sector.id).classList.add('selected');
+    qs('#mapHint').classList.add('hidden');
+    addSectorCard(sector);
+    updateGoBtn();
+    updateBadge();
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   SECTOR CARDS + ZOOM GRID
+══════════════════════════════════════════════════ */
+function addSectorCard(sector) {
+  const container = qs('#sectorCards');
+  const card = document.createElement('div');
+  // ADICIONA A COR DINÂMICA AO CARTÃO AQUI ↓
+  card.className = 'sector-card theme-' + sector.id.toUpperCase(); 
+  card.id = 'sc-' + sector.id;
+  card.innerHTML = `
+    <div class="sector-card-head">
+      <div class="dot"></div>
+      <span class="sc-name">${sector.label}</span>
+      <span class="sc-count" id="scCount-${sector.id}">0 quadrantes</span>
+      <button class="sc-remove" onclick="removeSector('${sector.id}')">✕</button>
+    </div>
+    <div class="sector-card-body">
+      <div class="zoom-wrap">
+        <div class="zoom-bg" id="zoom-${sector.id}"></div>
+      </div>
+      <div class="quad-chips" id="chips-${sector.id}">
+        <span class="quads-empty">Toque nos quadrantes acima</span>
+      </div>
+    </div>`;
+  container.appendChild(card);
+  buildZoomGrid(sector);
+}
+
+function buildZoomGrid(sector) {
+  const bg     = qs('#zoom-' + sector.id);
+  const scaleW = 100 / sector.w;
+  const bsw    = (scaleW * 100).toFixed(1);
+  const bpx    = sector.w >= 100 ? 0 : (sector.x / (100 - sector.w) * 100).toFixed(2);
+  const bpy    = sector.h >= 100 ? 0 : (sector.y / (100 - sector.h) * 100).toFixed(2);
+  const aspect = (sector.h / sector.w) * CFG.IMG_ASPECT;
+
+  bg.style.cssText = `
+    background-image:url('${CFG.IMG_SRC}');
+    background-size:${bsw}% auto;
+    background-position:${bpx}% ${bpy}%;
+    background-repeat:no-repeat;
+    padding-bottom:${(aspect * 100).toFixed(1)}%;
+  `;
+
+  sector.quadrants.forEach(q => {
+    const cell   = document.createElement('div');
+    cell.className   = 'quad-cell';
+    cell.dataset.qid = q.id;
+    cell.dataset.sid = sector.id;
+    const left   = ((q.x - sector.x) / sector.w * 100).toFixed(1);
+    const top    = ((q.y - sector.y) / sector.h * 100).toFixed(1);
+    const width  = (q.w / sector.w  * 100).toFixed(1);
+    const height = (q.h / sector.h  * 100).toFixed(1);
+    cell.style.cssText = `left:${left}%;top:${top}%;width:${width}%;height:${height}%`;
+    const lbl = document.createElement('div');
+    lbl.className   = 'quad-label';
+    lbl.textContent = q.label.split(' ').pop();
+    cell.appendChild(lbl);
+    cell.addEventListener('pointerdown', e => { e.preventDefault(); cell.setPointerCapture(e.pointerId); });
+    cell.addEventListener('pointerup',   e => { e.preventDefault(); toggleQuad(sector, q, cell); });
+    bg.appendChild(cell);
+  });
+}
+
+function toggleQuad(sector, quad, cell) {
+  const set = sectorSelections.get(sector.id);
+  if (!set) return;
+  if (set.has(quad.id)) { set.delete(quad.id); cell.classList.remove('selected'); }
+  else                  { set.add(quad.id);    cell.classList.add('selected');    }
+  renderSectorChips(sector);
+  updateGoBtn();
+  updateBadge();
+}
+
+function renderSectorChips(sector) {
+  const set  = sectorSelections.get(sector.id);
+  const cont = qs('#chips-'   + sector.id);
+  const cnt  = qs('#scCount-' + sector.id);
+  if (!set || set.size === 0) {
+    cont.innerHTML  = '<span class="quads-empty">Toque nos quadrantes acima</span>';
+    cnt.textContent = '0 quadrantes';
+    return;
+  }
+  cnt.textContent = set.size + ' quadrante' + (set.size > 1 ? 's' : '');
+  cont.innerHTML  = '';
+  sector.quadrants.filter(q => set.has(q.id)).forEach(q => {
+    const chip = document.createElement('div');
+    chip.className = 'quad-chip';
+    chip.innerHTML = `<span>${q.label}</span><button onclick="removeQuad('${sector.id}','${q.id}')">✕</button>`;
+    cont.appendChild(chip);
+  });
+}
+
+function removeQuad(sectorId, quadId) {
+  const set = sectorSelections.get(sectorId);
+  if (!set) return;
+  set.delete(quadId);
+  const cell = qs(`[data-qid="${quadId}"]`);
+  if (cell) cell.classList.remove('selected');
+  const sector = CFG.SECTORS.find(s => s.id === sectorId);
+  renderSectorChips(sector);
+  updateGoBtn();
+  updateBadge();
+}
+
+function removeSector(sectorId) {
+  sectorSelections.delete(sectorId);
+  qs('#so-' + sectorId)?.classList.remove('selected');
+  qs('#sc-' + sectorId)?.remove();
+  if (sectorSelections.size === 0) qs('#mapHint').classList.remove('hidden');
+  updateGoBtn();
+  updateBadge();
+}
+
+function updateGoBtn() {
+  let total = 0;
+  sectorSelections.forEach(set => total += set.size);
+  qs('#btnGoToDados').disabled = total === 0;
+}
+
+function updateBadge() {
+  let total = 0;
+  sectorSelections.forEach(set => total += set.size);
+  const badge = qs('#badgeLoc');
+  badge.textContent = total;
+  badge.classList.toggle('show', total > 0);
+}
+
+/* ══════════════════════════════════════════════════
+   SUMMARY
+══════════════════════════════════════════════════ */
+function updateSummary() {
+  const sectors = CFG.SECTORS.filter(s => sectorSelections.has(s.id));
+  if (sectors.length === 0) {
+    qs('#sumSectors').textContent = 'Nenhum selecionado';
+    qs('#sumSectors').className   = 'sum-empty';
+    qs('#sumQuads').textContent   = '—';
+    qs('#sumQuads').className     = 'sum-empty';
+    return;
+  }
+  qs('#sumSectors').textContent = sectors.map(s => s.label).join(', ');
+  qs('#sumSectors').className   = 'sum-val';
+  const allQuads = [];
+  sectors.forEach(s => {
+    const set = sectorSelections.get(s.id);
+    s.quadrants.filter(q => set.has(q.id)).forEach(q => allQuads.push(q.label));
+  });
+  qs('#sumQuads').textContent = allQuads.length ? allQuads.join(', ') : '—';
+  qs('#sumQuads').className   = allQuads.length ? 'sum-val' : 'sum-empty';
+}
+
+qs('#btnGoToDados').addEventListener('click', () => switchTab('dados'));
+
+/* ══════════════════════════════════════════════════
+   SUBMIT
+══════════════════════════════════════════════════ */
+qs('#btnConfirm').addEventListener('click', submitRecord);
+
+async function submitRecord() {
+  let totalQuads = 0;
+  sectorSelections.forEach(set => totalQuads += set.size);
+  if (totalQuads === 0) return toast('Selecione ao menos um quadrante na aba Localização.');
+  if (!navigator.onLine) return toast('Sem conexão. Verifique a rede.');
+  const userName = qs('#formUser').value.trim();
+  if (!userName) return toast('Informe seu nome antes de enviar.');
+
+  const now = new Date();
+  const locData = []; 
+  
+  const sectors = CFG.SECTORS.filter(s => sectorSelections.has(s.id));
+  sectors.forEach(s => {
+    const set = sectorSelections.get(s.id);
+    s.quadrants.filter(q => set.has(q.id)).forEach(q => {
+      locData.push({ setor: s.label, quadrante: q.label }); 
+    });
+  });
+
+  const payload = {
+    data:        now.toLocaleDateString('pt-BR'),
+    hora:        now.toLocaleTimeString('pt-BR'),
+    locais:      JSON.stringify(locData), 
+    dia_chuva:   qs('input[name="rainDay"]:checked').value,
+    intensidade: qs('input[name="rainInt"]:checked').value,
+    empocamento: qs('input[name="empocamento"]:checked').value,
+    usuario:     userName,
+    obs:         qs('#formObs').value.trim(),
+  };
+  
+  const btn = qs('#btnConfirm');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Enviando...';
+
+  try {
+    const url = new URL(CFG.APPS_SCRIPT_URL);
+    Object.entries(payload).forEach(([k,v]) => url.searchParams.set(k,v));
+    await fetch(url.toString(), { method:'GET' });
+    
+    const setoresFormatados = sectors.map(s => s.label).join(', ');
+    const quadrantesFormatados = locData.map(l => l.quadrante).join(', ');
+    
+    showSuccess(payload, setoresFormatados, quadrantesFormatados);
+  } catch(err) {
+    toast('Erro ao enviar. Verifique a URL do Apps Script.');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✅ &nbsp;CONFIRMAR REGISTRO';
+  }
+}
+
+function showSuccess(data, setoresFormatados, quadrantesFormatados) {
+  qs('#succSectors').textContent  = setoresFormatados;
+  qs('#succQuads').textContent    = quadrantesFormatados;
+  qs('#succDay').textContent      = data.dia_chuva;
+  qs('#succInt').textContent      = data.intensidade;
+  qs('#succEmp').textContent      = data.empocamento;
+  qs('#succUser').textContent     = data.usuario;
+  qs('#succDateTime').textContent = data.data + ' ' + data.hora;
+  showScreen('screenSuccess');
+}
+
+qs('#btnReset').addEventListener('click', () => {
+  sectorSelections.clear();
+  qs('#sectorCards').innerHTML = '';
+  qsa('.sector-overlay').forEach(el => el.classList.remove('selected'));
+  qs('#mapHint').classList.remove('hidden');
+  qs('#btnGoToDados').disabled = true;
+  updateBadge();
+  qs('input[name="rainDay"][value="Hoje"]').checked = true;
+  qs('input[name="rainInt"][value="Fraca"]').checked = true;
+  qs('input[name="empocamento"][value="Leve"]').checked = true;
+  qs('#formObs').value = '';
+  switchTab('loc');
+  showScreen('screenMain');
+});
+
+/* ══════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════ */
+function addRipple(container, x, y) {
+  const r = document.createElement('div');
+  r.className   = 'tap-ripple';
+  r.style.left  = x + 'px';
+  r.style.top   = y + 'px';
+  container.appendChild(r);
+  r.addEventListener('animationend', () => r.remove());
+}
+
+let toastTimer;
+function toast(msg, ok = false) {
+  const el = qs('#toast');
+  el.textContent = msg;
+  el.className = 'toast' + (ok ? ' ok' : '');
+  clearTimeout(toastTimer);
+  requestAnimationFrame(() => el.classList.add('show'));
+  
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
